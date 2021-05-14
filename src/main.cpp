@@ -34,13 +34,16 @@ TFT_eSPI tft = TFT_eSPI();         // Invoke custom library
 SemaphoreHandle_t LVGL_Semaphore;
 static lv_disp_buf_t disp_buf;
 static lv_color_t buf[LV_HOR_RES_MAX * 10];
-lv_obj_t * distancelabel = nullptr;
+// lv_obj_t * distancelabel = nullptr;
 lv_obj_t * timelabel = nullptr;
+lv_obj_t * ledlabel = nullptr;
+uint32_t showtime = 0;
 uint32_t timeStart = 0;
-uint32_t timeStop = 0;
+// uint32_t timeStop = 0;
+uint8_t ledBrightness = 5;
 static lv_style_t style1;
 lv_obj_t * reverseLED = nullptr;
-
+lv_obj_t *LED = nullptr;
 /*Read the touchpad*/
 bool my_touchpad_read(lv_indev_drv_t *indev_driver, lv_indev_data_t *data)
 {
@@ -100,7 +103,13 @@ bool read_encoder(lv_indev_drv_t * indev, lv_indev_data_t * data)
 int deleteb = 0;
 static void k_b_event_handler(lv_obj_t * obj, lv_event_t event)
 {
-    deleteb = 1;
+  if (event == LV_BTN_STATE_CHECKED_RELEASED)
+    ledBrightness++;
+    if (ledBrightness > 9){
+      ledBrightness = 0;
+    }
+    lv_led_set_bright(LED, 256 * ledBrightness / 10); //0-255
+
 }
 lv_obj_t * btn1 = NULL;
 void lv_ex_btn_1(void)
@@ -114,69 +123,35 @@ void lv_ex_btn_1(void)
     label = lv_label_create(btn1, NULL);
     lv_label_set_text(label, "Start");
 }
-lv_obj_t * gauge1 = nullptr;
-void lv_ex_gauge_1(void)
-{
-    /*Describe the color for the needles*/
-    static lv_color_t needle_colors[1];
-    needle_colors[0] = LV_COLOR_BLUE;
-
-    /*Create a gauge*/
-    gauge1 = lv_gauge_create(lv_scr_act(), NULL);
-    lv_gauge_set_range(gauge1, -120, 120);
-    lv_gauge_set_needle_count(gauge1, 1, needle_colors);
-    lv_obj_set_size(gauge1, 200, 200);
-    lv_obj_align(gauge1, NULL, LV_ALIGN_CENTER, 0, 0);
-
-    /*Set the values*/
-    lv_gauge_set_value(gauge1, 0, 0);
-}
-
-
-void lv_reverse_led_init(void)
-{
-    /*Create a LED and switch it OFF*/
-    reverseLED = lv_led_create(lv_scr_act(), NULL);
-    lv_obj_align(reverseLED, NULL, LV_ALIGN_CENTER, 100, 70);
-    lv_led_off(reverseLED);
-    // lv_led_on(reverseLED);
-}
 
 void lv_ex_label_1(void)
 {
-    lv_obj_t * label1 = lv_label_create(lv_scr_act(), NULL);
-    lv_label_set_long_mode(label1, LV_LABEL_LONG_BREAK);     /*Break the long lines*/
-    lv_label_set_recolor(label1, true);                      /*Enable re-coloring by commands in the text*/
-    lv_label_set_align(label1, LV_LABEL_ALIGN_CENTER);       /*Center aligned lines*/
-    lv_label_set_text(label1, "#0000ff Hello！#");
-    lv_obj_set_width(label1, 150);
-    lv_obj_align(label1, NULL, LV_ALIGN_IN_TOP_LEFT, 0, 0);
-    lv_obj_add_style(label1, LV_BTN_PART_MAIN, &style1);
+
 
     lv_obj_t * label2 = lv_label_create(lv_scr_act(), NULL);
     lv_label_set_long_mode(label2, LV_LABEL_LONG_SROLL_CIRC);     
     lv_obj_set_width(label2, 100);
     lv_label_set_text(label2, "ID:2018040704009");
-    lv_obj_align(label2, NULL, LV_ALIGN_IN_TOP_LEFT, 0, 30);
+    lv_obj_align(label2, NULL, LV_ALIGN_IN_TOP_RIGHT, 0, 0);
     lv_obj_add_style(label2, LV_BTN_PART_MAIN, &style1);
 
-    distancelabel = lv_label_create(lv_scr_act(), NULL);
-    lv_label_set_long_mode(distancelabel, LV_LABEL_LONG_SROLL_CIRC);     
-    lv_obj_set_width(distancelabel, 100);
-    lv_label_set_text_fmt(distancelabel, "%f", distance);
-    lv_obj_align(distancelabel, NULL, LV_ALIGN_IN_BOTTOM_LEFT, 0, 0);
 
     timelabel = lv_label_create(lv_scr_act(), NULL);
     lv_label_set_long_mode(timelabel, LV_LABEL_LONG_SROLL_CIRC);     
     lv_obj_set_width(timelabel, 100);
     lv_label_set_text_fmt(timelabel, "%d", 0);
-    lv_obj_align(timelabel, NULL, LV_ALIGN_IN_BOTTOM_RIGHT, 0, 0);
+    lv_obj_align(timelabel, NULL, LV_ALIGN_IN_TOP_MID, 0, 0);
+
+
+    ledlabel = lv_label_create(lv_scr_act(), NULL);
+    lv_label_set_long_mode(ledlabel, LV_LABEL_LONG_SROLL_CIRC);     
+    lv_obj_set_width(ledlabel, 100);
+    lv_label_set_text_fmt(ledlabel, "%d", 0);
+    lv_obj_align(ledlabel, NULL, LV_ALIGN_IN_TOP_LEFT, 0, 0);
     // lv_obj_add_style(distancelabel, LV_BTN_PART_MAIN, &style1);
 }
 
-// This next function will be called during decoding of the jpeg file to
-// render each block to the TFT.  If you use a different TFT library
-// you will need to adapt this function to suit.
+
 bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap)
 {
    // Stop further decoding as image is running off bottom of screen
@@ -185,10 +160,7 @@ bool tft_output(int16_t x, int16_t y, uint16_t w, uint16_t h, uint16_t* bitmap)
   // This function will clip the image block rendering automatically at the TFT boundaries
   tft.pushImage(x, y, w, h, bitmap);
 
-  // This might work instead if you adapt the sketch to use the Adafruit_GFX library
-  // tft.drawRGBBitmap(x, y, bitmap, w, h);
 
-  // Return 1 to decode next block
   return 1;
 }
 
@@ -201,38 +173,12 @@ void setup()
   Serial.println("\n\n Testing TJpg_Decoder library");
   MotorControl.attachMotors(14, 15, 16, 17);
 
-  // // Initialise SPIFFS
-  // if (!SPIFFS.begin()) {
-  //   Serial.println("SPIFFS initialisation failed!");
-  //   while (1) yield(); // Stay here twiddling thumbs waiting
-  // }
-  // Serial.println("\r\nInitialisation done.");
-
-  // Initialise the TFT
   tft.begin();
   tft.setTextColor(0xFFFF, 0x0000);
   tft.fillScreen(TFT_BLACK);
   tft.setRotation(1);
   tft.setSwapBytes(true); // We need to swap the colour bytes (endianess)
 
-  // The jpeg image can be scaled by a factor of 1, 2, 4, or 8
-  // TJpgDec.setJpgScale(1);
-
-  // The decoder must be given the exact name of the rendering function above
-  // TJpgDec.setCallback(tft_output);
-  // playjpgAnime_config_t bootAnimeConfig = {
-  //       .name = "/out",
-  //       .startnum = 0,
-  //       .endnum = 40,
-  //       .numlen = 3,
-  //       .x = 0,
-  //       .y = 0,
-  //   };
-  // while(playjpgAnime(&bootAnimeConfig))
-  //   vTaskDelay(2);
-
-  // while(playjpgAnime("/anime",0,328,3))
-  //   vTaskDelay(1);
     xSemaphoreTake(LVGL_Semaphore,portMAX_DELAY);
     lv_init();
     uint16_t calData[5] = { 376, 3526, 288, 3524, 7 };
@@ -255,53 +201,32 @@ void setup()
     lv_indev_drv_register(&indev_drv);
     lv_ex_btn_1();
     lv_ex_label_1();
-    lv_reverse_led_init();
+    // lv_reverse_led_init();
+    LED = lv_led_create(lv_scr_act(), NULL);
+    lv_obj_align(LED, NULL, LV_ALIGN_CENTER, 100, 70);
+    // lv_led_off(LED);
+    lv_led_set_bright(LED, 128);
+    timeStart = millis();
+    // lv_led_set_bright(led, bright) 0-255
     xSemaphoreGive(LVGL_Semaphore);
-    // test_app_main();
-    xTaskCreatePinnedToCore((TaskFunction_t) HCSR04_Task,
-            (const char *) "HCSR04Task",
-            (uint16_t) 4096,
-            (void *) NULL,
-            (UBaseType_t) 1,
-            (TaskHandle_t *) &HCSR04_Task_Handle,
-            tskNO_AFFINITY); 
-    xTaskCreatePinnedToCore((TaskFunction_t) Music_Task,
-            (const char *) "MusicTask",
-            (uint16_t) 4096,
-            (void *) NULL,
-            (UBaseType_t) 1,
-            (TaskHandle_t *) &Music_Task_Handle,
-            tskNO_AFFINITY);    
+    
 
 }
 
 void loop()
 {
     xSemaphoreTake(LVGL_Semaphore,portMAX_DELAY);
-    lv_label_set_text_fmt(distancelabel, "%f", distance);
-    lv_task_handler(); /* let the GUI do its work */
-    if (deleteb){
-      timeStart = millis();
-      deleteb = 0;
-      lv_obj_del_async(btn1);
-      lv_ex_gauge_1();
-    }
-    // static uint8_t i = 0;
-    // i++;
-    // i = i > 10 ? 0 : i;
-    // if (!i)
-    //   carSpeed += 1;
-    // carSpeed = carSpeed >= 120 ? 0 :carSpeed;
-    lv_label_set_text_fmt(timelabel, "%d", timeStop-timeStart);
-    if (gauge1 != nullptr)
+    showtime = millis() - timeStart;
+    if (showtime > 5000)
     {
-      // static int16_t lastcarSpeed = 0;
-      // if (lastcarSpeed != carSpeed){
-        // lastcarSpeed = carSpeed;
-        
-        lv_gauge_set_value(gauge1, 0, carSpeed);
-      // }
+      timeStart = millis();
+      showtime = 0;
     }
+    lv_task_handler(); /* let the GUI do its work */
+    // lv_label_set_text_fmt(timelabel, "%d", timeStop-timeStart);
+    lv_label_set_text_fmt(timelabel, "%.1f", showtime/1000.0);
+    lv_label_set_text_fmt(ledlabel, "%.1f", ledBrightness/10.0);
+    // lv_label_set_text_fmt(timelabel, "%d", showtime);
     xSemaphoreGive(LVGL_Semaphore);
     vTaskDelay(5);
 }
